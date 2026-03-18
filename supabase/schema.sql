@@ -31,18 +31,19 @@ CREATE TABLE inventory_items (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Note: We might want a transactions table later if an item can go in and out multiple times,
--- but based on the requirements, it seems like a single item lifecycle right now.
-
 -- Enable Row Level Security (RLS)
 ALTER TABLE inventory_items ENABLE ROW LEVEL SECURITY;
 
--- Create policies (Example: Allow all authenticated users to read/write for now)
-CREATE POLICY "Allow authenticated users to read inventory_items" ON inventory_items
-    FOR SELECT USING (auth.role() = 'authenticated');
+-- Policies: allow anon role (no login required — internal tool)
+CREATE POLICY "Allow anon select" ON inventory_items
+    FOR SELECT TO anon USING (true);
 
-CREATE POLICY "Allow authenticated users to insert inventory_items" ON inventory_items
-    FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Allow anon insert" ON inventory_items
+    FOR INSERT TO anon WITH CHECK (true);
 
-CREATE POLICY "Allow authenticated users to update inventory_items" ON inventory_items
-    FOR UPDATE USING (auth.role() = 'authenticated');
+CREATE POLICY "Allow anon update" ON inventory_items
+    FOR UPDATE TO anon USING (true) WITH CHECK (true);
+
+CREATE POLICY "Allow anon delete" ON inventory_items
+    FOR DELETE TO anon USING (true);
+

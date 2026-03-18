@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { PackagePlus, LogOut, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { PackagePlus, LogOut, CheckCircle2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { BannerSize, BannerMaterial, BannerCondition, InventoryItem } from '../lib/mockData';
+import type { BannerSize, BannerMaterial, BannerCondition, InventoryItem } from '../lib/types';
+import { createInventoryItem, getAvailableItems, updateInventoryItemSalida } from '../lib/api';
 
 export default function Almacenista() {
   const [activeTab, setActiveTab] = useState<'ingreso' | 'salida'>('ingreso');
@@ -42,6 +43,7 @@ export default function Almacenista() {
 }
 
 function FormularioIngreso() {
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     fecha_ingreso: new Date().toISOString().split('T')[0],
     arte_anunciante: '',
@@ -52,21 +54,27 @@ function FormularioIngreso() {
     estado_lona: 'nueva' as BannerCondition,
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate DB save
-    console.log('Guardando ingreso:', formData);
-    toast.success('Ingreso registrado correctamente');
-    // Reset form
-    setFormData({
-      fecha_ingreso: new Date().toISOString().split('T')[0],
-      arte_anunciante: '',
-      vendedor: '',
-      sitio_instalacion: '',
-      tamano: 'sencilla',
-      material: 'front',
-      estado_lona: 'nueva',
-    });
+    setLoading(true);
+    try {
+      await createInventoryItem(formData);
+      toast.success('Ingreso registrado correctamente');
+      setFormData({
+        fecha_ingreso: new Date().toISOString().split('T')[0],
+        arte_anunciante: '',
+        vendedor: '',
+        sitio_instalacion: '',
+        tamano: 'sencilla',
+        material: 'front',
+        estado_lona: 'nueva',
+      });
+    } catch (error) {
+      toast.error('Error al registrar el ingreso. Intenta de nuevo.');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -169,10 +177,15 @@ function FormularioIngreso() {
       <div className="pt-4 flex justify-end">
         <button
           type="submit"
-          className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-md font-medium shadow-sm transition-colors flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          disabled={loading}
+          className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-md font-medium shadow-sm transition-colors flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
         >
-          <PackagePlus className="w-5 h-5" />
-          Registrar Ingreso
+          {loading ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <PackagePlus className="w-5 h-5" />
+          )}
+          {loading ? 'Guardando...' : 'Registrar Ingreso'}
         </button>
       </div>
     </form>
@@ -180,27 +193,61 @@ function FormularioIngreso() {
 }
 
 function FormularioSalida() {
+  const [loading, setLoading] = useState(false);
+  const [loadingItems, setLoadingItems] = useState(true);
+  const [availableItems, setAvailableItems] = useState<InventoryItem[]>([]);
+
   const [formData, setFormData] = useState({
-    itemId: '', // Simulate selecting an item to check out
+    itemId: '',
     fecha_salida: new Date().toISOString().split('T')[0],
     entregado_a: '',
     estado_entrega: 'bueno' as BannerCondition,
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Cargar items disponibles al montar el componente
+  useEffect(() => {
+    const fetchItems = async () => {
+      try {
+        const items = await getAvailableItems();
+        setAvailableItems(items);
+      } catch {
+        toast.error('No se pudieron cargar los materiales disponibles.');
+      } finally {
+        setLoadingItems(false);
+      }
+    };
+    fetchItems();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.itemId) {
       toast.error('Por favor selecciona un material para darle salida');
       return;
     }
-    console.log('Guardando salida:', formData);
-    toast.success('Salida registrada correctamente');
-    setFormData({
-      itemId: '',
-      fecha_salida: new Date().toISOString().split('T')[0],
-      entregado_a: '',
-      estado_entrega: 'bueno',
-    });
+    setLoading(true);
+    try {
+      await updateInventoryItemSalida(formData.itemId, {
+        fecha_salida: formData.fecha_salida,
+        entregado_a: formData.entregado_a,
+        estado_entrega: formData.estado_entrega,
+        updated_at: new Date().toISOString(),
+      });
+      toast.success('Salida registrada correctamente');
+      // Remover el item de la lista local y resetear
+      setAvailableItems((prev) => prev.filter((i) => i.id !== formData.itemId));
+      setFormData({
+        itemId: '',
+        fecha_salida: new Date().toISOString().split('T')[0],
+        entregado_a: '',
+        estado_entrega: 'bueno',
+      });
+    } catch (error) {
+      toast.error('Error al registrar la salida. Intenta de nuevo.');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -214,15 +261,29 @@ function FormularioSalida() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="flex flex-col gap-1.5 md:col-span-2">
             <label className="text-sm font-medium text-gray-700">Seleccionar Material Disponible</label>
-            <select
-              value={formData.itemId}
-              onChange={(e) => setFormData({ ...formData, itemId: e.target.value })}
-              className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
-            >
-              <option value="">-- Seleccione un material --</option>
-              <option value="1">Campaña Verano 2026 - Av. Reforma 123 (Doble / Front)</option>
-              <option value="2">Lanzamiento Producto X - Periférico Sur Km 15 (Cuádruple / Mesh)</option>
-            </select>
+            {loadingItems ? (
+              <div className="flex items-center gap-2 text-sm text-gray-500 py-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Cargando materiales...
+              </div>
+            ) : (
+              <select
+                value={formData.itemId}
+                onChange={(e) => setFormData({ ...formData, itemId: e.target.value })}
+                className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+              >
+                <option value="">-- Seleccione un material --</option>
+                {availableItems.length === 0 ? (
+                  <option disabled>No hay materiales disponibles en almacén</option>
+                ) : (
+                  availableItems.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.arte_anunciante} — {item.sitio_instalacion} ({item.tamano} / {item.material})
+                    </option>
+                  ))
+                )}
+              </select>
+            )}
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -268,10 +329,15 @@ function FormularioSalida() {
       <div className="pt-4 flex justify-end">
         <button
           type="submit"
-          className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-2.5 rounded-md font-medium shadow-sm transition-colors flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+          disabled={loading || loadingItems}
+          className="bg-orange-600 hover:bg-orange-700 disabled:opacity-60 disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-md font-medium shadow-sm transition-colors flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
         >
-          <LogOut className="w-5 h-5" />
-          Registrar Salida
+          {loading ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <LogOut className="w-5 h-5" />
+          )}
+          {loading ? 'Guardando...' : 'Registrar Salida'}
         </button>
       </div>
     </form>
