@@ -6,7 +6,7 @@ import Admin from './pages/Admin';
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <Toaster position="top-right" richColors />
       <Routes>
         <Route path="/" element={<Layout />}>
