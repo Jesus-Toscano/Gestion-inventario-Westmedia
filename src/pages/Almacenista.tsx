@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PackagePlus, LogOut, CheckCircle2, Loader2 } from 'lucide-react';
+import { PackagePlus, LogOut, CheckCircle2, Loader2, Search as SearchIcon, X } from 'lucide-react';
 import { toast } from 'sonner';
 import type { BannerSize, BannerMaterial, BannerCondition, InventoryItem } from '../lib/types';
 import { createInventoryItem, getAvailableItems, updateInventoryItemSalida } from '../lib/api';
@@ -42,6 +42,7 @@ export default function Almacenista() {
   );
 }
 
+// ─── Formulario de Ingreso ────────────────────────────────────────────────────
 function FormularioIngreso() {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -109,11 +110,11 @@ function FormularioIngreso() {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-gray-700">Vendedor</label>
+            <label className="text-sm font-medium text-gray-700">Ubicación en Bodega</label>
             <input
               type="text"
               required
-              placeholder="Nombre del vendedor"
+              placeholder="Ej. Estante A-3, Pasillo 2..."
               value={formData.vendedor}
               onChange={(e) => setFormData({ ...formData, vendedor: e.target.value })}
               className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -192,19 +193,25 @@ function FormularioIngreso() {
   );
 }
 
+// ─── Formulario de Salida ─────────────────────────────────────────────────────
 function FormularioSalida() {
   const [loading, setLoading] = useState(false);
   const [loadingItems, setLoadingItems] = useState(true);
   const [availableItems, setAvailableItems] = useState<InventoryItem[]>([]);
 
+  // ── Combobox state ──
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+
   const [formData, setFormData] = useState({
-    itemId: '',
     fecha_salida: new Date().toISOString().split('T')[0],
     entregado_a: '',
     estado_entrega: 'bueno' as BannerCondition,
+    kg_alambre: '',
+    llaves_entregadas: false,
   });
 
-  // Cargar items disponibles al montar el componente
   useEffect(() => {
     const fetchItems = async () => {
       try {
@@ -219,28 +226,55 @@ function FormularioSalida() {
     fetchItems();
   }, []);
 
+  // Filtrar en tiempo real
+  const filteredItems = availableItems.filter((item) => {
+    const q = searchQuery.toLowerCase();
+    return (
+      item.arte_anunciante.toLowerCase().includes(q) ||
+      item.sitio_instalacion.toLowerCase().includes(q) ||
+      item.tamano.toLowerCase().includes(q) ||
+      item.material.toLowerCase().includes(q)
+    );
+  });
+
+  const handleSelectItem = (item: InventoryItem) => {
+    setSelectedItem(item);
+    setSearchQuery(`${item.arte_anunciante} — ${item.sitio_instalacion} (${item.tamano} / ${item.material})`);
+    setShowDropdown(false);
+  };
+
+  const handleClearSelection = () => {
+    setSelectedItem(null);
+    setSearchQuery('');
+    setShowDropdown(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.itemId) {
+    if (!selectedItem) {
       toast.error('Por favor selecciona un material para darle salida');
       return;
     }
     setLoading(true);
     try {
-      await updateInventoryItemSalida(formData.itemId, {
+      await updateInventoryItemSalida(selectedItem.id, {
         fecha_salida: formData.fecha_salida,
         entregado_a: formData.entregado_a,
         estado_entrega: formData.estado_entrega,
+        kg_alambre: formData.kg_alambre ? parseFloat(formData.kg_alambre) : null,
+        llaves_entregadas: formData.llaves_entregadas,
         updated_at: new Date().toISOString(),
       });
       toast.success('Salida registrada correctamente');
-      // Remover el item de la lista local y resetear
-      setAvailableItems((prev) => prev.filter((i) => i.id !== formData.itemId));
+      setAvailableItems((prev) => prev.filter((i) => i.id !== selectedItem.id));
+      setSelectedItem(null);
+      setSearchQuery('');
       setFormData({
-        itemId: '',
         fecha_salida: new Date().toISOString().split('T')[0],
         entregado_a: '',
         estado_entrega: 'bueno',
+        kg_alambre: '',
+        llaves_entregadas: false,
       });
     } catch (error) {
       toast.error('Error al registrar la salida. Intenta de nuevo.');
@@ -250,6 +284,9 @@ function FormularioSalida() {
     }
   };
 
+  const inputClass =
+    'px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm w-full';
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
@@ -257,35 +294,86 @@ function FormularioSalida() {
           <LogOut className="h-5 w-5 text-orange-500" />
           Datos de Salida / Entrega
         </h3>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+          {/* ── FILA 1: Buscador autocompletable (ancho completo) ── */}
           <div className="flex flex-col gap-1.5 md:col-span-2">
-            <label className="text-sm font-medium text-gray-700">Seleccionar Material Disponible</label>
+            <label className="text-sm font-medium text-gray-700">
+              Seleccionar Material Disponible
+            </label>
             {loadingItems ? (
               <div className="flex items-center gap-2 text-sm text-gray-500 py-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Cargando materiales...
               </div>
             ) : (
-              <select
-                value={formData.itemId}
-                onChange={(e) => setFormData({ ...formData, itemId: e.target.value })}
-                className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
-              >
-                <option value="">-- Seleccione un material --</option>
-                {availableItems.length === 0 ? (
-                  <option disabled>No hay materiales disponibles en almacén</option>
-                ) : (
-                  availableItems.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.arte_anunciante} — {item.sitio_instalacion} ({item.tamano} / {item.material})
-                    </option>
-                  ))
+              <div className="relative">
+                {/* Input de búsqueda */}
+                <div className="relative flex items-center">
+                  <SearchIcon className="absolute left-3 h-4 w-4 text-gray-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Escribe para buscar por anunciante, sitio, tamaño..."
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setSelectedItem(null);
+                      setShowDropdown(true);
+                    }}
+                    onFocus={() => setShowDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
+                    className={`${inputClass} pl-9 pr-9 ${selectedItem ? 'border-indigo-400 bg-indigo-50' : ''}`}
+                  />
+                  {(searchQuery || selectedItem) && (
+                    <button
+                      type="button"
+                      onClick={handleClearSelection}
+                      className="absolute right-3 text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Chip de selección activa */}
+                {selectedItem && (
+                  <div className="mt-1.5 flex items-center gap-2 text-xs text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-md px-3 py-1.5">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                    <span className="font-medium">Seleccionado:</span>
+                    <span>{selectedItem.arte_anunciante} — {selectedItem.sitio_instalacion} ({selectedItem.tamano} / {selectedItem.material})</span>
+                  </div>
                 )}
-              </select>
+
+                {/* Dropdown */}
+                {showDropdown && !selectedItem && (
+                  <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-y-auto">
+                    {filteredItems.length === 0 ? (
+                      <div className="px-4 py-3 text-sm text-gray-500 italic">
+                        {availableItems.length === 0
+                          ? 'No hay materiales disponibles en almacén'
+                          : 'Sin resultados para esta búsqueda'}
+                      </div>
+                    ) : (
+                      filteredItems.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onMouseDown={() => handleSelectItem(item)}
+                          className="w-full text-left px-4 py-2.5 text-sm hover:bg-indigo-50 hover:text-indigo-700 transition-colors border-b border-gray-100 last:border-0 flex flex-col"
+                        >
+                          <span className="font-medium">{item.arte_anunciante}</span>
+                          <span className="text-xs text-gray-500">{item.sitio_instalacion} · {item.tamano} / {item.material}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
+          {/* ── FILA 2: Fecha de Salida | Entregado a ── */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-gray-700">Fecha de Salida</label>
             <input
@@ -293,7 +381,7 @@ function FormularioSalida() {
               required
               value={formData.fecha_salida}
               onChange={(e) => setFormData({ ...formData, fecha_salida: e.target.value })}
-              className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className={inputClass}
             />
           </div>
 
@@ -305,16 +393,17 @@ function FormularioSalida() {
               placeholder="Nombre de quien recibe"
               value={formData.entregado_a}
               onChange={(e) => setFormData({ ...formData, entregado_a: e.target.value })}
-              className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className={inputClass}
             />
           </div>
 
+          {/* ── FILA 3: Estado de entrega | Kg de alambre + Switch llaves ── */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-gray-700">Estado en que se entrega</label>
             <select
               value={formData.estado_entrega}
               onChange={(e) => setFormData({ ...formData, estado_entrega: e.target.value as BannerCondition })}
-              className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+              className={`${inputClass} bg-white`}
             >
               <option value="nueva">Nueva</option>
               <option value="bueno">Bueno</option>
@@ -323,13 +412,51 @@ function FormularioSalida() {
               <option value="rota">Rota</option>
             </select>
           </div>
+
+          {/* Columna derecha: Kg alambre + switch llaves */}
+          <div className="flex flex-col gap-3">
+            {/* Kg de alambre */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-gray-700">Kg de alambre entregados</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                value={formData.kg_alambre}
+                onChange={(e) => setFormData({ ...formData, kg_alambre: e.target.value })}
+                className={inputClass}
+              />
+            </div>
+
+            {/* Switch: ¿Se entregaron llaves? */}
+            <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-md px-3 py-2.5">
+              <span className="text-sm font-medium text-gray-700">¿Se entregaron llaves?</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={formData.llaves_entregadas}
+                onClick={() => setFormData({ ...formData, llaves_entregadas: !formData.llaves_entregadas })}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 ${
+                  formData.llaves_entregadas ? 'bg-indigo-600' : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    formData.llaves_entregadas ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
         </div>
       </div>
 
       <div className="pt-4 flex justify-end">
         <button
           type="submit"
-          disabled={loading || loadingItems}
+          disabled={loading || loadingItems || !selectedItem}
           className="bg-orange-600 hover:bg-orange-700 disabled:opacity-60 disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-md font-medium shadow-sm transition-colors flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
         >
           {loading ? (

@@ -26,10 +26,16 @@ CREATE TABLE inventory_items (
     fecha_salida DATE,
     entregado_a TEXT,
     estado_entrega banner_condition,
+    kg_alambre NUMERIC(10, 2),          -- Kg de alambre entregados (nullable)
+    llaves_entregadas BOOLEAN DEFAULT FALSE, -- Si se entregaron llaves
     
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- ── MIGRACIONES (ejecutar en Supabase SQL Editor si la tabla ya existe) ──────
+-- ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS kg_alambre NUMERIC(10, 2);
+-- ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS llaves_entregadas BOOLEAN DEFAULT FALSE;
 
 -- Enable Row Level Security (RLS)
 ALTER TABLE inventory_items ENABLE ROW LEVEL SECURITY;

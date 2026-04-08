@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { InventoryItem, NewInventoryItem, SalidaUpdate } from './types';
+import type { InventoryItem, NewInventoryItem, SalidaUpdate, FullInventoryUpdate } from './types';
 
 /**
  * Obtiene todos los items del inventario, ordenados del más nuevo al más antiguo.
@@ -74,4 +74,41 @@ export async function updateInventoryItemSalida(
   }
 
   return data as InventoryItem;
+}
+
+/**
+ * Actualiza completamente un registro de inventario existente.
+ */
+export async function updateInventoryItem(
+  id: string,
+  data: FullInventoryUpdate
+): Promise<InventoryItem> {
+  const { data: updated, error } = await supabase
+    .from('inventory_items')
+    .update(data)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error al actualizar el registro:', error.message);
+    throw new Error(error.message);
+  }
+
+  return updated as InventoryItem;
+}
+
+/**
+ * Elimina un registro de inventario por su ID.
+ */
+export async function deleteInventoryItem(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('inventory_items')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error al eliminar el registro:', error.message);
+    throw new Error(error.message);
+  }
 }
