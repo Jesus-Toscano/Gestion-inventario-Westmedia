@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PackagePlus, Loader2, Star, History, Box, Table, Download, Pencil, Trash2 } from 'lucide-react';
+import { PackagePlus, Loader2, Star, History, Box, Table, Download, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getInsumos, createInsumo, updateInsumo, getMovimientosInsumos, updateMovimientoInsumo } from '../lib/api';
 import PasswordModal from './PasswordModal';

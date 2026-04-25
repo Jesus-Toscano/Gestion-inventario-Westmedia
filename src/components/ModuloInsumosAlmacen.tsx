@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PackagePlus, LogOut, Loader2, AlertCircle, Box, CheckCircle2 } from 'lucide-react';
+import { PackagePlus, LogOut, Loader2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { getInsumos, createMovimientoInsumo } from '../lib/api';
 import type { Insumo, TipoMovimiento } from '../lib/types';
