@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { InventoryItem, NewInventoryItem, SalidaUpdate, FullInventoryUpdate } from './types';
+import type { InventoryItem, NewInventoryItem, SalidaUpdate, FullInventoryUpdate, Insumo, NewInsumo, MovimientoInsumo, NewMovimientoInsumo } from './types';
 
 /**
  * Obtiene todos los items del inventario, ordenados del más nuevo al más antiguo.
@@ -111,4 +111,81 @@ export async function deleteInventoryItem(id: string): Promise<void> {
     console.error('Error al eliminar el registro:', error.message);
     throw new Error(error.message);
   }
+}
+
+// ============================================================================
+// API Insumos
+// ============================================================================
+
+export async function getInsumos(): Promise<Insumo[]> {
+  const { data, error } = await supabase
+    .from('insumos')
+    .select('*')
+    .order('prioritario', { ascending: false })
+    .order('nombre', { ascending: true });
+
+  if (error) throw new Error(error.message);
+  return data as Insumo[];
+}
+
+export async function createInsumo(insumo: NewInsumo): Promise<Insumo> {
+  const { data, error } = await supabase
+    .from('insumos')
+    .insert([insumo])
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data as Insumo;
+}
+
+export async function getMovimientosInsumos(): Promise<MovimientoInsumo[]> {
+  const { data, error } = await supabase
+    .from('movimientos_insumos')
+    .select('*, insumos(nombre, unidad_medida)')
+    .order('fecha', { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return data as MovimientoInsumo[];
+}
+
+export async function createMovimientoInsumo(movimiento: NewMovimientoInsumo): Promise<MovimientoInsumo> {
+  const { data, error } = await supabase
+    .from('movimientos_insumos')
+    .insert([movimiento])
+    .select('*, insumos(nombre, unidad_medida)')
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data as MovimientoInsumo;
+}
+
+export async function updateInsumo(id: string, updates: Partial<Insumo>): Promise<Insumo> {
+  const { data, error } = await supabase
+    .from('insumos')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data as Insumo;
+}
+
+export async function deleteMovimientoInsumo(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('movimientos_insumos')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw new Error(error.message);
+}
+
+export async function updateMovimientoInsumo(id: string, updates: any): Promise<void> {
+  const { error } = await supabase
+    .from('movimientos_insumos')
+    .update(updates)
+    .eq('id', id);
+
+  if (error) throw new Error(error.message);
 }

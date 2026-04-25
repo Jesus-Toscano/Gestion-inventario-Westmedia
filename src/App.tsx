@@ -7,7 +7,7 @@ import Admin from './pages/Admin';
 function App() {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL}>
-      <Toaster position="top-right" richColors />
+      <Toaster position="bottom-right" richColors />
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Navigate to="/almacenista" replace />} />

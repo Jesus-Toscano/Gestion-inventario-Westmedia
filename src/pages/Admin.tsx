@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Download, Search, History, Loader2, RefreshCw, Pencil, Trash2, X, AlertTriangle, Save } from 'lucide-react';
+import { Download, Search, History, Loader2, RefreshCw, Pencil, Trash2, X, AlertTriangle, Save, Box, ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import type { InventoryItem, BannerSize, BannerMaterial, BannerCondition, FullInventoryUpdate } from '../lib/types';
 import { getInventoryItems, updateInventoryItem, deleteInventoryItem } from '../lib/api';
+import ModuloInsumosAdmin from '../components/ModuloInsumosAdmin';
+import PasswordModal from '../components/PasswordModal';
 
 // ─── Modal de Confirmación de Eliminación ─────────────────────────────────────
 interface DeleteModalProps {
@@ -34,7 +36,7 @@ function DeleteModal({ item, onConfirm, onCancel, isLoading }: DeleteModalProps)
         <div className="bg-gray-50 rounded-lg p-3 mb-5 border border-gray-200 text-sm text-gray-700 space-y-1">
           <div><span className="font-medium">Arte/Anunciante:</span> {item.arte_anunciante}</div>
           <div><span className="font-medium">Sitio:</span> {item.sitio_instalacion}</div>
-          <div><span className="font-medium">Vendedor:</span> {item.vendedor}</div>
+          <div><span className="font-medium">Ubicación en bodega:</span> {item.vendedor}</div>
         </div>
 
         <div className="flex gap-3 justify-end">
@@ -144,7 +146,7 @@ function EditModal({ item, onSave, onCancel }: EditModalProps) {
                   className={inputClass} />
               </div>
               <div>
-                <label className={labelClass}>Vendedor</label>
+                <label className={labelClass}>Ubicación en Bodega</label>
                 <input type="text" required value={formData.vendedor}
                   onChange={(e) => setFormData({ ...formData, vendedor: e.target.value })}
                   className={inputClass} />
@@ -253,6 +255,8 @@ export default function Admin() {
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [deletingItem, setDeletingItem] = useState<InventoryItem | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [pendingAction, setPendingAction] = useState<{ type: 'edit' | 'delete'; item: InventoryItem } | null>(null);
+  const [mainTab, setMainTab] = useState<'lonas' | 'insumos'>('lonas');
 
   const fetchInventory = async () => {
     setLoading(true);
@@ -301,9 +305,10 @@ export default function Admin() {
   const handleExportCSV = () => {
     try {
       const headers = [
-        'ID', 'Fecha Ingreso', 'Arte/Anunciante', 'Vendedor',
+        'ID', 'Fecha Ingreso', 'Arte/Anunciante', 'Ubicación en Bodega',
         'Sitio de Instalación', 'Tamaño', 'Material',
         'Estado Lona (Ingreso)', 'Fecha Salida', 'Entregado A', 'Estado Lona (Salida)',
+        'Kg Alambre', 'Llaves Entregadas',
       ];
 
       const csvRows = [
@@ -321,11 +326,13 @@ export default function Admin() {
             item.fecha_salida || 'N/A',
             `"${item.entregado_a || 'N/A'}"`,
             item.estado_entrega || 'N/A',
+            item.kg_alambre !== null && item.kg_alambre !== undefined ? item.kg_alambre : '0',
+            item.llaves_entregadas ? 'Sí' : 'No',
           ].join(',')
         ),
       ];
 
-      const csvContent = csvRows.join('\n');
+      const csvContent = "\uFEFF" + csvRows.join('\n');
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -361,7 +368,43 @@ export default function Admin() {
         />
       )}
 
-      {/* Header Actions */}
+      {pendingAction && (
+        <PasswordModal
+          actionName={pendingAction.type === 'edit' ? 'editar este registro' : 'eliminar este registro'}
+          onSuccess={() => {
+            if (pendingAction.type === 'edit') setEditingItem(pendingAction.item);
+            if (pendingAction.type === 'delete') setDeletingItem(pendingAction.item);
+            setPendingAction(null);
+          }}
+          onCancel={() => setPendingAction(null)}
+        />
+      )}
+
+      {/* Main Navigation (Admin) */}
+      <div className="flex gap-2 p-1 bg-gray-100 rounded-lg justify-start max-w-sm mb-4">
+        <button
+          onClick={() => setMainTab('lonas')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 text-sm font-medium rounded-md transition-all ${
+            mainTab === 'lonas' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <ImageIcon className="w-4 h-4" />
+          General Lonas
+        </button>
+        <button
+          onClick={() => setMainTab('insumos')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 text-sm font-medium rounded-md transition-all ${
+            mainTab === 'insumos' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <Box className="w-4 h-4" />
+          Admin de Insumos
+        </button>
+      </div>
+
+      {mainTab === 'lonas' ? (
+        <>
+          {/* Header Actions */}
       <div className="flex flex-col sm:flex-row justify-between gap-4 items-start sm:items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
         <div className="relative w-full sm:w-96">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -435,7 +478,7 @@ export default function Admin() {
                       <td className="px-6 py-4">
                         <div className="text-sm font-medium text-gray-900">{item.arte_anunciante}</div>
                         <div className="text-sm text-gray-500">{item.sitio_instalacion}</div>
-                        <div className="text-xs text-indigo-600 mt-1">Vendedor: {item.vendedor}</div>
+                        <div className="text-xs text-indigo-600 mt-1">Ubicación en Bodega: {item.vendedor}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">{item.fecha_ingreso}</div>
@@ -481,7 +524,7 @@ export default function Admin() {
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button
-                            onClick={() => setEditingItem(item)}
+                            onClick={() => setPendingAction({ type: 'edit', item })}
                             title="Editar registro"
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors"
                           >
@@ -489,7 +532,7 @@ export default function Admin() {
                             Editar
                           </button>
                           <button
-                            onClick={() => setDeletingItem(item)}
+                            onClick={() => setPendingAction({ type: 'delete', item })}
                             title="Eliminar registro"
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
                           >
@@ -514,6 +557,10 @@ export default function Admin() {
           </div>
         )}
       </div>
+        </>
+      ) : (
+        <ModuloInsumosAdmin />
+      )}
     </div>
   );
 }

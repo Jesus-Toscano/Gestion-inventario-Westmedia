@@ -1,16 +1,42 @@
 import React, { useState, useEffect } from 'react';
-import { PackagePlus, LogOut, CheckCircle2, Loader2, Search as SearchIcon, X } from 'lucide-react';
+import { PackagePlus, LogOut, CheckCircle2, Loader2, Search as SearchIcon, X, Box, ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import type { BannerSize, BannerMaterial, BannerCondition, InventoryItem } from '../lib/types';
 import { createInventoryItem, getAvailableItems, updateInventoryItemSalida } from '../lib/api';
+import ModuloInsumosAlmacen from '../components/ModuloInsumosAlmacen';
 
 export default function Almacenista() {
+  const [mainTab, setMainTab] = useState<'lonas' | 'insumos'>('lonas');
   const [activeTab, setActiveTab] = useState<'ingreso' | 'salida'>('ingreso');
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
-      {/* Tabs */}
-      <div className="flex gap-4 border-b border-gray-200 pb-2">
+      {/* Main Navigation */}
+      <div className="flex gap-2 p-1 bg-gray-100 rounded-lg justify-start max-w-sm mb-4">
+        <button
+          onClick={() => setMainTab('lonas')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 text-sm font-medium rounded-md transition-all ${
+            mainTab === 'lonas' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <ImageIcon className="w-4 h-4" />
+          Gestión de Lonas
+        </button>
+        <button
+          onClick={() => setMainTab('insumos')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 text-sm font-medium rounded-md transition-all ${
+            mainTab === 'insumos' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <Box className="w-4 h-4" />
+          Gestión de Insumos
+        </button>
+      </div>
+
+      {mainTab === 'lonas' ? (
+        <>
+          {/* Tabs Nav (Lonas) */}
+          <div className="flex gap-4 border-b border-gray-200 pb-2">
         <button
           onClick={() => setActiveTab('ingreso')}
           className={`flex items-center gap-2 px-4 py-2 font-medium text-sm rounded-t-lg transition-colors ${
@@ -35,9 +61,13 @@ export default function Almacenista() {
         </button>
       </div>
 
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-        {activeTab === 'ingreso' ? <FormularioIngreso /> : <FormularioSalida />}
-      </div>
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            {activeTab === 'ingreso' ? <FormularioIngreso /> : <FormularioSalida />}
+          </div>
+        </>
+      ) : (
+        <ModuloInsumosAlmacen />
+      )}
     </div>
   );
 }
@@ -210,6 +240,7 @@ function FormularioSalida() {
     estado_entrega: 'bueno' as BannerCondition,
     kg_alambre: '',
     llaves_entregadas: false,
+    sitio_instalacion: '',
   });
 
   useEffect(() => {
@@ -240,12 +271,14 @@ function FormularioSalida() {
   const handleSelectItem = (item: InventoryItem) => {
     setSelectedItem(item);
     setSearchQuery(`${item.arte_anunciante} — ${item.sitio_instalacion} (${item.tamano} / ${item.material})`);
+    setFormData((prev) => ({ ...prev, sitio_instalacion: item.sitio_instalacion }));
     setShowDropdown(false);
   };
 
   const handleClearSelection = () => {
     setSelectedItem(null);
     setSearchQuery('');
+    setFormData((prev) => ({ ...prev, sitio_instalacion: '' }));
     setShowDropdown(false);
   };
 
@@ -263,6 +296,7 @@ function FormularioSalida() {
         estado_entrega: formData.estado_entrega,
         kg_alambre: formData.kg_alambre ? parseFloat(formData.kg_alambre) : null,
         llaves_entregadas: formData.llaves_entregadas,
+        sitio_instalacion: formData.sitio_instalacion,
         updated_at: new Date().toISOString(),
       });
       toast.success('Salida registrada correctamente');
@@ -275,6 +309,7 @@ function FormularioSalida() {
         estado_entrega: 'bueno',
         kg_alambre: '',
         llaves_entregadas: false,
+        sitio_instalacion: '',
       });
     } catch (error) {
       toast.error('Error al registrar la salida. Intenta de nuevo.');
@@ -393,6 +428,18 @@ function FormularioSalida() {
               placeholder="Nombre de quien recibe"
               value={formData.entregado_a}
               onChange={(e) => setFormData({ ...formData, entregado_a: e.target.value })}
+              className={inputClass}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5 md:col-span-2">
+            <label className="text-sm font-medium text-gray-700">Sitio de Instalación</label>
+            <input
+              type="text"
+              required
+              placeholder="Dirección o ubicación final (se autocompleta con el sitio original, puedes editarlo)"
+              value={formData.sitio_instalacion}
+              onChange={(e) => setFormData({ ...formData, sitio_instalacion: e.target.value })}
               className={inputClass}
             />
           </div>
