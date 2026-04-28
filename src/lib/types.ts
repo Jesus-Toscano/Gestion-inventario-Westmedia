@@ -74,6 +74,7 @@ export interface MovimientoInsumo {
   sitio_instalacion?: string | null;
   notas_adicionales?: string | null;
   fecha?: string;
+  cancelado?: boolean;
   insumos?: { nombre: string; unidad_medida: string }; // Join relation
 }
 
