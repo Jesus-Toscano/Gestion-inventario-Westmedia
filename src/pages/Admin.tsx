@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Download, Search, History, Loader2, RefreshCw, Pencil, Trash2, Box, ImageIcon } from 'lucide-react';
+import { Download, Search, History, Loader2, RefreshCw, Pencil, Trash2, Box, ImageIcon, Warehouse } from 'lucide-react';
+import CatalogoUbicaciones from '../components/ui/CatalogoUbicaciones';
 import { toast } from 'sonner';
 import type { InventoryItem } from '../lib/types';
 import ModuloInsumosAdmin from '../features/insumos/components/ModuloInsumosAdmin';
@@ -22,7 +23,7 @@ export default function Admin() {
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [deletingItem, setDeletingItem] = useState<InventoryItem | null>(null);
   const [pendingAction, setPendingAction] = useState<{ type: 'edit' | 'delete'; item: InventoryItem } | null>(null);
-  const [mainTab, setMainTab] = useState<'lonas' | 'insumos'>('lonas');
+  const [mainTab, setMainTab] = useState<'lonas' | 'insumos' | 'ubicaciones'>('lonas');
 
   const totalPages = Math.ceil(count / pageSize);
 
@@ -62,7 +63,7 @@ export default function Admin() {
             item.id,
             item.fecha_ingreso,
             `"${item.arte_anunciante}"`,
-            `"${item.vendedor_rel?.nombre || ''}"`,
+            `"${item.vendedor || ''}"`,
             `"${item.sitio_instalacion}"`,
             item.tamano,
             item.material,
@@ -144,6 +145,15 @@ export default function Admin() {
           <Box className="w-4 h-4" />
           Admin de Insumos
         </button>
+        <button
+          onClick={() => setMainTab('ubicaciones')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 text-sm font-medium rounded-md transition-all ${
+            mainTab === 'ubicaciones' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <Warehouse className="w-4 h-4" />
+          Ubicaciones
+        </button>
       </div>
 
       {mainTab === 'lonas' ? (
@@ -222,7 +232,7 @@ export default function Admin() {
                       <td className="px-6 py-4">
                         <div className="text-sm font-medium text-gray-900">{item.arte_anunciante}</div>
                         <div className="text-sm text-gray-500">{item.sitio_instalacion}</div>
-                        <div className="text-xs text-indigo-600 mt-1">Ubicación en Bodega: {item.vendedor_rel?.nombre}</div>
+                        <div className="text-xs text-indigo-600 mt-1">Ubicación en Bodega: {item.vendedor}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">{item.fecha_ingreso}</div>
@@ -327,8 +337,12 @@ export default function Admin() {
         )}
       </div>
         </>
-      ) : (
+      ) : mainTab === 'insumos' ? (
         <ModuloInsumosAdmin />
+      ) : (
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <CatalogoUbicaciones />
+        </div>
       )}
     </div>
   );

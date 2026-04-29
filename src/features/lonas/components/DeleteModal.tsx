@@ -30,7 +30,7 @@ export function DeleteModal({ item, onConfirm, onCancel, isLoading }: DeleteModa
         <div className="bg-gray-50 rounded-lg p-3 mb-5 border border-gray-200 text-sm text-gray-700 space-y-1">
           <div><span className="font-medium">Arte/Anunciante:</span> {item.arte_anunciante}</div>
           <div><span className="font-medium">Sitio:</span> {item.sitio_instalacion}</div>
-          <div><span className="font-medium">Ubicación en bodega:</span> {item.vendedor_rel?.nombre}</div>
+          <div><span className="font-medium">Ubicación en bodega:</span> {item.vendedor}</div>
         </div>
 
         <div className="flex gap-3 justify-end">

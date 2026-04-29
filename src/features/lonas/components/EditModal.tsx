@@ -3,7 +3,7 @@ import { Pencil, X, Loader2, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import type { InventoryItem, BannerSize, BannerMaterial, BannerCondition, FullInventoryUpdate } from '../../../lib/types';
 import { useUpdateInventoryItem } from '../hooks/useInventory';
-import { useEmpleados } from '../../../hooks/useCatalogs';
+import { useUbicacionesBodega } from '../../../hooks/useCatalogs';
 
 interface EditModalProps {
   item: InventoryItem;
@@ -12,13 +12,13 @@ interface EditModalProps {
 }
 
 export function EditModal({ item, onSave, onCancel }: EditModalProps) {
-  const { data: empleados = [] } = useEmpleados();
+  const { data: ubicaciones = [] } = useUbicacionesBodega();
 
   const updateItemMutation = useUpdateInventoryItem();
   const [formData, setFormData] = useState<FullInventoryUpdate>({
     fecha_ingreso: item.fecha_ingreso,
     arte_anunciante: item.arte_anunciante,
-    vendedor_id: item.vendedor_id,
+    vendedor: item.vendedor,
     sitio_instalacion: item.sitio_instalacion,
     tamano: item.tamano,
     material: item.material,
@@ -26,7 +26,9 @@ export function EditModal({ item, onSave, onCancel }: EditModalProps) {
     fecha_salida: item.fecha_salida ?? null,
     entregado_a: item.entregado_a ?? null,
     estado_entrega: item.estado_entrega ?? null,
-    updated_at: '',
+    kg_alambre: item.kg_alambre ?? null,
+    llaves_entregadas: item.llaves_entregadas ?? null,
+    updated_at: new Date().toISOString(),
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -89,11 +91,11 @@ export function EditModal({ item, onSave, onCancel }: EditModalProps) {
               </div>
               <div>
                 <label className={labelClass}>Ubicación en Bodega</label>
-                <select required value={formData.vendedor_id}
-                  onChange={(e) => setFormData({ ...formData, vendedor_id: e.target.value })}
+                <select required value={formData.vendedor}
+                  onChange={(e) => setFormData({ ...formData, vendedor: e.target.value })}
                   className={`${inputClass} bg-white`}>
                   <option value="">Seleccione...</option>
-                  {empleados.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+                  {ubicaciones.map(u => <option key={u.id} value={u.nombre}>{u.nombre}{u.descripcion ? ` — ${u.descripcion}` : ''}</option>)}
                 </select>
               </div>
               <div>

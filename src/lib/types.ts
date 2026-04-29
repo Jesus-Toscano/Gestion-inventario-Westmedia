@@ -20,12 +20,20 @@ export interface Sitio {
   direccion?: string;
 }
 
+export interface UbicacionBodega {
+  id: string;
+  nombre: string;
+  descripcion?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 // ─── Lonas ──────────────────────────────────────────────────────────────────
 export interface InventoryItem {
   id: string;
   fecha_ingreso: string;
   arte_anunciante: string;
-  vendedor_id: string;
+  vendedor: string;           // Nombre de ubicación en bodega (texto libre / nombre del catálogo)
   sitio_instalacion: string;
   tamano: BannerSize;
   material: BannerMaterial;
@@ -37,34 +45,32 @@ export interface InventoryItem {
   llaves_entregadas?: boolean | null;
   created_at?: string;
   updated_at?: string;
-
-  // Joins
-  vendedor_rel?: Empleado;
 }
 
-export type NewInventoryItem = Omit<InventoryItem, 'id' | 'created_at' | 'updated_at' | 'vendedor_rel'>;
+export type NewInventoryItem = Omit<InventoryItem, 'id' | 'created_at' | 'updated_at'>;
 
 export interface SalidaUpdate {
   fecha_salida: string;
   entregado_a: string;
   estado_entrega: BannerCondition;
-  kg_alambre: number | null;
+  kg_alambre: number;
   llaves_entregadas: boolean;
-  sitio_instalacion: string;
   updated_at: string;
 }
 
 export interface FullInventoryUpdate {
   fecha_ingreso: string;
   arte_anunciante: string;
-  vendedor_id: string;
+  vendedor: string;
   sitio_instalacion: string;
   tamano: BannerSize;
   material: BannerMaterial;
   estado_lona: BannerCondition;
-  fecha_salida?: string | null;
-  entregado_a?: string | null;
-  estado_entrega?: BannerCondition | null;
+  fecha_salida: string | null;
+  entregado_a: string | null;
+  estado_entrega: BannerCondition | null;
+  kg_alambre: number | null;
+  llaves_entregadas: boolean | null;
   updated_at: string;
 }
 

@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { InventoryItem, NewInventoryItem, SalidaUpdate, FullInventoryUpdate, Insumo, NewInsumo, MovimientoInsumo, NewMovimientoInsumo, Cliente, Empleado, Sitio, Proveedor, Instalacion, CostoInstalacion } from './types';
+import type { InventoryItem, NewInventoryItem, SalidaUpdate, FullInventoryUpdate, Insumo, NewInsumo, MovimientoInsumo, NewMovimientoInsumo, Cliente, Empleado, Sitio, UbicacionBodega, Proveedor, Instalacion, CostoInstalacion } from './types';
 
 /**
  * Obtiene todos los items del inventario, ordenados del más nuevo al más antiguo.
@@ -147,6 +147,38 @@ export async function getSitios(): Promise<Sitio[]> {
   const { data, error } = await supabase.from('sitios').select('*').order('nombre');
   if (error) throw new Error(error.message);
   return data as Sitio[];
+}
+
+export async function getUbicacionesBodega(): Promise<UbicacionBodega[]> {
+  const { data, error } = await supabase.from('ubicaciones_bodega').select('*').order('nombre');
+  if (error) throw new Error(error.message);
+  return data as UbicacionBodega[];
+}
+
+export async function createUbicacionBodega(ub: Omit<UbicacionBodega, 'id' | 'created_at' | 'updated_at'>): Promise<UbicacionBodega> {
+  const { data, error } = await supabase
+    .from('ubicaciones_bodega')
+    .insert([ub])
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  return data as UbicacionBodega;
+}
+
+export async function updateUbicacionBodega(id: string, ub: Partial<Omit<UbicacionBodega, 'id' | 'created_at'>>): Promise<UbicacionBodega> {
+  const { data, error } = await supabase
+    .from('ubicaciones_bodega')
+    .update({ ...ub, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  return data as UbicacionBodega;
+}
+
+export async function deleteUbicacionBodega(id: string): Promise<void> {
+  const { error } = await supabase.from('ubicaciones_bodega').delete().eq('id', id);
+  if (error) throw new Error(error.message);
 }
 
 // ============================================================================

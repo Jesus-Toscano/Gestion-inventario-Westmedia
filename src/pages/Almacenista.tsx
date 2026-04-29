@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import type { BannerSize, BannerMaterial, BannerCondition, InventoryItem } from '../lib/types';
 import ModuloInsumosAlmacen from '../features/insumos/components/ModuloInsumosAlmacen';
 import { useAvailableInventory, useCreateInventoryItem, useUpdateInventoryItemSalida } from '../features/lonas/hooks/useInventory';
-import { useEmpleados } from '../hooks/useCatalogs';
+import { useUbicacionesBodega } from '../hooks/useCatalogs';
 
 export default function Almacenista() {
   const [mainTab, setMainTab] = useState<'lonas' | 'insumos'>('lonas');
@@ -76,12 +76,12 @@ export default function Almacenista() {
 // ─── Formulario de Ingreso ────────────────────────────────────────────────────
 function FormularioIngreso() {
   const createItemMutation = useCreateInventoryItem();
-  const { data: empleados = [] } = useEmpleados();
+  const { data: ubicaciones = [] } = useUbicacionesBodega();
 
   const [formData, setFormData] = useState({
     fecha_ingreso: new Date().toISOString().split('T')[0],
     arte_anunciante: '',
-    vendedor_id: '',
+    vendedor: '',
     sitio_instalacion: '',
     tamano: 'sencilla' as BannerSize,
     material: 'front' as BannerMaterial,
@@ -96,7 +96,7 @@ function FormularioIngreso() {
       setFormData({
         fecha_ingreso: new Date().toISOString().split('T')[0],
         arte_anunciante: '',
-        vendedor_id: '',
+        vendedor: '',
         sitio_instalacion: '',
         tamano: 'sencilla',
         material: 'front',
@@ -143,12 +143,12 @@ function FormularioIngreso() {
             <label className="text-sm font-medium text-gray-700">Ubicación en Bodega</label>
             <select
               required
-              value={formData.vendedor_id}
-              onChange={(e) => setFormData({ ...formData, vendedor_id: e.target.value })}
+              value={formData.vendedor}
+              onChange={(e) => setFormData({ ...formData, vendedor: e.target.value })}
               className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
             >
-              <option value="">Seleccione una ubicación / vendedor...</option>
-              {empleados.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+              <option value="">Seleccione una ubicación...</option>
+              {ubicaciones.map(u => <option key={u.id} value={u.nombre}>{u.nombre}{u.descripcion ? ` — ${u.descripcion}` : ''}</option>)}
             </select>
           </div>
 
@@ -285,9 +285,8 @@ function FormularioSalida() {
           fecha_salida: formData.fecha_salida,
           entregado_a: formData.entregado_a,
           estado_entrega: formData.estado_entrega,
-          kg_alambre: formData.kg_alambre ? parseFloat(formData.kg_alambre) : null,
+          kg_alambre: formData.kg_alambre ? parseFloat(formData.kg_alambre) : 0,
           llaves_entregadas: formData.llaves_entregadas,
-          sitio_instalacion: formData.sitio_instalacion,
           updated_at: new Date().toISOString(),
         }
       });
