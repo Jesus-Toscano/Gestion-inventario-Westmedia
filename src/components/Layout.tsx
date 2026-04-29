@@ -1,5 +1,5 @@
 import { Outlet, NavLink } from 'react-router-dom';
-import { Package, LineChart } from 'lucide-react';
+import { Package, LineChart, PieChart, FolderKanban } from 'lucide-react';
 
 export default function Layout() {
   return (
@@ -24,6 +24,32 @@ export default function Layout() {
               >
                 <Package className="h-4 w-4" />
                 Almacén
+              </NavLink>
+              <NavLink
+                to="/dashboard"
+                className={({ isActive }) =>
+                  `flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-indigo-100 text-indigo-700'
+                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  }`
+                }
+              >
+                <PieChart className="h-4 w-4" />
+                Dashboard
+              </NavLink>
+              <NavLink
+                to="/proyectos"
+                className={({ isActive }) =>
+                  `flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-indigo-100 text-indigo-700'
+                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  }`
+                }
+              >
+                <FolderKanban className="h-4 w-4" />
+                Proyectos
               </NavLink>
               <NavLink
                 to="/admin"

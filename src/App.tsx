@@ -3,6 +3,8 @@ import { Toaster } from 'sonner';
 import Layout from './components/Layout';
 import Almacenista from './pages/Almacenista';
 import Admin from './pages/Admin';
+import Dashboard from './pages/Dashboard';
+import Proyectos from './pages/Proyectos';
 
 function App() {
   return (
@@ -13,6 +15,8 @@ function App() {
           <Route index element={<Navigate to="/almacenista" replace />} />
           <Route path="almacenista" element={<Almacenista />} />
           <Route path="admin" element={<Admin />} />
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="proyectos" element={<Proyectos />} />
         </Route>
       </Routes>
     </BrowserRouter>

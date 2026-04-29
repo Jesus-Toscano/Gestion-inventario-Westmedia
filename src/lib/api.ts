@@ -1,21 +1,35 @@
 import { supabase } from './supabase';
-import type { InventoryItem, NewInventoryItem, SalidaUpdate, FullInventoryUpdate, Insumo, NewInsumo, MovimientoInsumo, NewMovimientoInsumo } from './types';
+import type { InventoryItem, NewInventoryItem, SalidaUpdate, FullInventoryUpdate, Insumo, NewInsumo, MovimientoInsumo, NewMovimientoInsumo, Cliente, Empleado, Sitio, Proveedor, Instalacion, CostoInstalacion } from './types';
 
 /**
  * Obtiene todos los items del inventario, ordenados del más nuevo al más antiguo.
  */
-export async function getInventoryItems(): Promise<InventoryItem[]> {
-  const { data, error } = await supabase
+export async function getInventoryItems(
+  page: number = 0,
+  pageSize: number = 100,
+  searchTerm: string = ''
+): Promise<{ data: InventoryItem[], count: number }> {
+  let query = supabase
     .from('inventory_items')
-    .select('*')
-    .order('created_at', { ascending: false });
+    .select('*, vendedor_rel:vendedor_id(*)', { count: 'exact' });
+
+  if (searchTerm) {
+    query = supabase
+      .from('inventory_items')
+      .select('*, vendedor_rel:vendedor_id(*)', { count: 'exact' })
+      .ilike('arte_anunciante', `%${searchTerm}%`);
+  }
+
+  const { data, count, error } = await query
+    .order('created_at', { ascending: false })
+    .range(page * pageSize, (page + 1) * pageSize - 1);
 
   if (error) {
     console.error('Error al cargar el inventario:', error.message);
     throw new Error(error.message);
   }
 
-  return data as InventoryItem[];
+  return { data: data as InventoryItem[], count: count || 0 };
 }
 
 /**
@@ -24,7 +38,7 @@ export async function getInventoryItems(): Promise<InventoryItem[]> {
 export async function getAvailableItems(): Promise<InventoryItem[]> {
   const { data, error } = await supabase
     .from('inventory_items')
-    .select('*')
+    .select('*, vendedor_rel:vendedor_id(*)')
     .is('fecha_salida', null)
     .order('fecha_ingreso', { ascending: false });
 
@@ -114,13 +128,52 @@ export async function deleteInventoryItem(id: string): Promise<void> {
 }
 
 // ============================================================================
-// API Insumos
+// Catálogos (Normalization)
 // ============================================================================
+
+export async function getClientes(): Promise<Cliente[]> {
+  const { data, error } = await supabase.from('clientes').select('*').order('nombre');
+  if (error) throw new Error(error.message);
+  return data as Cliente[];
+}
+
+export async function getEmpleados(): Promise<Empleado[]> {
+  const { data, error } = await supabase.from('empleados').select('*').order('nombre');
+  if (error) throw new Error(error.message);
+  return data as Empleado[];
+}
+
+export async function getSitios(): Promise<Sitio[]> {
+  const { data, error } = await supabase.from('sitios').select('*').order('nombre');
+  if (error) throw new Error(error.message);
+  return data as Sitio[];
+}
+
+// ============================================================================
+// API Insumos y Proveedores
+// ============================================================================
+
+export async function getProveedores(): Promise<Proveedor[]> {
+  const { data, error } = await supabase.from('proveedores').select('*').order('nombre');
+  if (error) throw new Error(error.message);
+  return data as Proveedor[];
+}
+
+export async function createProveedor(proveedor: Omit<Proveedor, 'id' | 'created_at'>): Promise<Proveedor> {
+  const { data, error } = await supabase
+    .from('proveedores')
+    .insert([proveedor])
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data as Proveedor;
+}
 
 export async function getInsumos(): Promise<Insumo[]> {
   const { data, error } = await supabase
     .from('insumos')
-    .select('*')
+    .select('*, proveedor:proveedor_id(*)')
     .order('prioritario', { ascending: false })
     .order('nombre', { ascending: true });
 
@@ -185,6 +238,80 @@ export async function updateMovimientoInsumo(id: string, updates: any): Promise<
   const { error } = await supabase
     .from('movimientos_insumos')
     .update(updates)
+    .eq('id', id);
+
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteInsumo(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('insumos')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw new Error(error.message);
+}
+
+// ============================================================================
+// API Instalaciones y Costos
+// ============================================================================
+
+export async function getInstalaciones(): Promise<Instalacion[]> {
+  const { data, error } = await supabase
+    .from('instalaciones')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return data as Instalacion[];
+}
+
+export async function createInstalacion(instalacion: Partial<Instalacion>): Promise<Instalacion> {
+  const { data, error } = await supabase
+    .from('instalaciones')
+    .insert([instalacion])
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data as Instalacion;
+}
+
+export async function updateInstalacion(id: string, updates: Partial<Instalacion>): Promise<void> {
+  const { error } = await supabase
+    .from('instalaciones')
+    .update(updates)
+    .eq('id', id);
+
+  if (error) throw new Error(error.message);
+}
+
+export async function getCostosInstalacion(instalacionId: string): Promise<CostoInstalacion[]> {
+  const { data, error } = await supabase
+    .from('costos_instalacion')
+    .select('*')
+    .eq('instalacion_id', instalacionId)
+    .order('created_at', { ascending: true });
+
+  if (error) throw new Error(error.message);
+  return data as CostoInstalacion[];
+}
+
+export async function createCostoInstalacion(costo: Omit<CostoInstalacion, 'id' | 'created_at'>): Promise<CostoInstalacion> {
+  const { data, error } = await supabase
+    .from('costos_instalacion')
+    .insert([costo])
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data as CostoInstalacion;
+}
+
+export async function deleteCostoInstalacion(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('costos_instalacion')
+    .delete()
     .eq('id', id);
 
   if (error) throw new Error(error.message);

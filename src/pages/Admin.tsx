@@ -1,304 +1,48 @@
-import { useState, useEffect } from 'react';
-import { Download, Search, History, Loader2, RefreshCw, Pencil, Trash2, X, AlertTriangle, Save, Box, ImageIcon } from 'lucide-react';
+import { useState } from 'react';
+import { Download, Search, History, Loader2, RefreshCw, Pencil, Trash2, Box, ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
-import type { InventoryItem, BannerSize, BannerMaterial, BannerCondition, FullInventoryUpdate } from '../lib/types';
-import { getInventoryItems, updateInventoryItem, deleteInventoryItem } from '../lib/api';
-import ModuloInsumosAdmin from '../components/ModuloInsumosAdmin';
-import PasswordModal from '../components/PasswordModal';
-
-// ─── Modal de Confirmación de Eliminación ─────────────────────────────────────
-interface DeleteModalProps {
-  item: InventoryItem;
-  onConfirm: () => void;
-  onCancel: () => void;
-  isLoading: boolean;
-}
-
-function DeleteModal({ item, onConfirm, onCancel, isLoading }: DeleteModalProps) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} />
-
-      {/* Modal */}
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in fade-in zoom-in-95 duration-200">
-        <div className="flex items-center gap-3 text-red-600 mb-4">
-          <div className="p-2 bg-red-50 rounded-full">
-            <AlertTriangle className="h-6 w-6" />
-          </div>
-          <h2 className="text-lg font-semibold text-gray-900">Eliminar Registro</h2>
-        </div>
-
-        <p className="text-sm text-gray-600 mb-2">
-          ¿Estás seguro de que deseas eliminar el siguiente registro? <strong>Esta acción no se puede deshacer.</strong>
-        </p>
-
-        <div className="bg-gray-50 rounded-lg p-3 mb-5 border border-gray-200 text-sm text-gray-700 space-y-1">
-          <div><span className="font-medium">Arte/Anunciante:</span> {item.arte_anunciante}</div>
-          <div><span className="font-medium">Sitio:</span> {item.sitio_instalacion}</div>
-          <div><span className="font-medium">Ubicación en bodega:</span> {item.vendedor}</div>
-        </div>
-
-        <div className="flex gap-3 justify-end">
-          <button
-            onClick={onCancel}
-            disabled={isLoading}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-60"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={onConfirm}
-            disabled={isLoading}
-            className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-60 flex items-center gap-2"
-          >
-            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-            {isLoading ? 'Eliminando...' : 'Sí, eliminar'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Modal de Edición ─────────────────────────────────────────────────────────
-interface EditModalProps {
-  item: InventoryItem;
-  onSave: (updated: InventoryItem) => void;
-  onCancel: () => void;
-}
-
-function EditModal({ item, onSave, onCancel }: EditModalProps) {
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState<FullInventoryUpdate>({
-    fecha_ingreso: item.fecha_ingreso,
-    arte_anunciante: item.arte_anunciante,
-    vendedor: item.vendedor,
-    sitio_instalacion: item.sitio_instalacion,
-    tamano: item.tamano,
-    material: item.material,
-    estado_lona: item.estado_lona,
-    fecha_salida: item.fecha_salida ?? null,
-    entregado_a: item.entregado_a ?? null,
-    estado_entrega: item.estado_entrega ?? null,
-    updated_at: '',
-  });
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const payload: FullInventoryUpdate = {
-        ...formData,
-        fecha_salida: formData.fecha_salida || null,
-        entregado_a: formData.entregado_a || null,
-        estado_entrega: formData.fecha_salida ? formData.estado_entrega : null,
-        updated_at: new Date().toISOString(),
-      };
-      const updated = await updateInventoryItem(item.id, payload);
-      toast.success('Registro actualizado correctamente');
-      onSave(updated);
-    } catch (error) {
-      console.error(error);
-      toast.error('Error al actualizar el registro. Intenta de nuevo.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const inputClass =
-    'px-3 py-2 border border-gray-300 rounded-lg shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 w-full';
-  const labelClass = 'block text-xs font-medium text-gray-600 mb-1';
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} />
-
-      {/* Modal */}
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
-          <div className="flex items-center gap-2 text-indigo-600">
-            <Pencil className="h-5 w-5" />
-            <h2 className="text-lg font-semibold text-gray-900">Editar Registro</h2>
-          </div>
-          <button onClick={onCancel} className="p-1 rounded-lg hover:bg-gray-100 transition-colors">
-            <X className="h-5 w-5 text-gray-500" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          {/* Sección Ingreso */}
-          <div>
-            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Datos de Ingreso</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className={labelClass}>Fecha de Ingreso</label>
-                <input type="date" required value={formData.fecha_ingreso}
-                  onChange={(e) => setFormData({ ...formData, fecha_ingreso: e.target.value })}
-                  className={inputClass} />
-              </div>
-              <div>
-                <label className={labelClass}>Arte / Anunciante</label>
-                <input type="text" required value={formData.arte_anunciante}
-                  onChange={(e) => setFormData({ ...formData, arte_anunciante: e.target.value })}
-                  className={inputClass} />
-              </div>
-              <div>
-                <label className={labelClass}>Ubicación en Bodega</label>
-                <input type="text" required value={formData.vendedor}
-                  onChange={(e) => setFormData({ ...formData, vendedor: e.target.value })}
-                  className={inputClass} />
-              </div>
-              <div>
-                <label className={labelClass}>Sitio de Instalación</label>
-                <input type="text" required value={formData.sitio_instalacion}
-                  onChange={(e) => setFormData({ ...formData, sitio_instalacion: e.target.value })}
-                  className={inputClass} />
-              </div>
-              <div>
-                <label className={labelClass}>Tamaño</label>
-                <select value={formData.tamano}
-                  onChange={(e) => setFormData({ ...formData, tamano: e.target.value as BannerSize })}
-                  className={`${inputClass} bg-white`}>
-                  <option value="sencilla">Sencilla</option>
-                  <option value="doble">Doble</option>
-                  <option value="cuadruple">Cuádruple</option>
-                </select>
-              </div>
-              <div>
-                <label className={labelClass}>Material</label>
-                <select value={formData.material}
-                  onChange={(e) => setFormData({ ...formData, material: e.target.value as BannerMaterial })}
-                  className={`${inputClass} bg-white`}>
-                  <option value="front">Front</option>
-                  <option value="mesh">Mesh</option>
-                </select>
-              </div>
-              <div className="sm:col-span-2">
-                <label className={labelClass}>Estado de la Lona</label>
-                <select value={formData.estado_lona}
-                  onChange={(e) => setFormData({ ...formData, estado_lona: e.target.value as BannerCondition })}
-                  className={`${inputClass} bg-white`}>
-                  <option value="nueva">Nueva</option>
-                  <option value="bueno">Bueno</option>
-                  <option value="regular">Regular</option>
-                  <option value="en mal estado">En mal estado</option>
-                  <option value="rota">Rota</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Divider */}
-          <hr className="border-gray-100" />
-
-          {/* Sección Salida (opcional) */}
-          <div>
-            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Datos de Salida <span className="normal-case text-gray-400 font-normal">(opcional)</span></h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className={labelClass}>Fecha de Salida</label>
-                <input type="date" value={formData.fecha_salida ?? ''}
-                  onChange={(e) => setFormData({ ...formData, fecha_salida: e.target.value || null })}
-                  className={inputClass} />
-              </div>
-              <div>
-                <label className={labelClass}>Entregado a</label>
-                <input type="text" value={formData.entregado_a ?? ''}
-                  placeholder="Nombre de quien recibe"
-                  onChange={(e) => setFormData({ ...formData, entregado_a: e.target.value || null })}
-                  className={inputClass} disabled={!formData.fecha_salida} />
-              </div>
-              <div className="sm:col-span-2">
-                <label className={labelClass}>Estado en que se entrega</label>
-                <select value={formData.estado_entrega ?? ''}
-                  onChange={(e) => setFormData({ ...formData, estado_entrega: (e.target.value as BannerCondition) || null })}
-                  className={`${inputClass} bg-white`} disabled={!formData.fecha_salida}>
-                  <option value="">-- Sin datos de entrega --</option>
-                  <option value="nueva">Nueva</option>
-                  <option value="bueno">Bueno</option>
-                  <option value="regular">Regular</option>
-                  <option value="en mal estado">En mal estado</option>
-                  <option value="rota">Rota</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Acciones */}
-          <div className="flex gap-3 justify-end pt-2">
-            <button type="button" onClick={onCancel} disabled={loading}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-60">
-              Cancelar
-            </button>
-            <button type="submit" disabled={loading}
-              className="px-5 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-60 flex items-center gap-2">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              {loading ? 'Guardando...' : 'Guardar Cambios'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
+import type { InventoryItem } from '../lib/types';
+import ModuloInsumosAdmin from '../features/insumos/components/ModuloInsumosAdmin';
+import PasswordModal from '../components/ui/PasswordModal';
+import { DeleteModal } from '../features/lonas/components/DeleteModal';
+import { EditModal } from '../features/lonas/components/EditModal';
+import { useInventory, useDeleteInventoryItem } from '../features/lonas/hooks/useInventory';
 
 // ─── Componente Principal Admin ────────────────────────────────────────────────
 export default function Admin() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const pageSize = 50;
+  
+  // React Query re-fetches automatically when page or searchTerm change
+  const { data: { data: inventory = [], count = 0 } = {}, isLoading: loading, refetch: fetchInventory } = useInventory(page, pageSize, searchTerm);
+  const deleteItemMutation = useDeleteInventoryItem();
 
   // Estado para modales
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [deletingItem, setDeletingItem] = useState<InventoryItem | null>(null);
-  const [deleteLoading, setDeleteLoading] = useState(false);
   const [pendingAction, setPendingAction] = useState<{ type: 'edit' | 'delete'; item: InventoryItem } | null>(null);
   const [mainTab, setMainTab] = useState<'lonas' | 'insumos'>('lonas');
 
-  const fetchInventory = async () => {
-    setLoading(true);
-    try {
-      const items = await getInventoryItems();
-      setInventory(items);
-    } catch {
-      toast.error('Error al cargar el inventario.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const totalPages = Math.ceil(count / pageSize);
 
-  useEffect(() => {
-    fetchInventory();
-  }, []);
-
-  const filteredInventory = inventory.filter((item) =>
-    Object.values(item).some((value) =>
-      String(value).toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  );
+  // Ya no filtramos localmente, React Query + Supabase hacen el filtrado.
+  const filteredInventory = inventory;
 
   // ── Handlers CRUD ──
-  const handleSaveEdit = (updated: InventoryItem) => {
-    setInventory((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
+  const handleSaveEdit = () => {
     setEditingItem(null);
   };
 
   const handleConfirmDelete = async () => {
     if (!deletingItem) return;
-    setDeleteLoading(true);
     try {
-      await deleteInventoryItem(deletingItem.id);
-      setInventory((prev) => prev.filter((i) => i.id !== deletingItem.id));
+      await deleteItemMutation.mutateAsync(deletingItem.id);
       toast.success('Registro eliminado correctamente');
       setDeletingItem(null);
     } catch (error) {
       console.error(error);
       toast.error('Error al eliminar el registro. Intenta de nuevo.');
-    } finally {
-      setDeleteLoading(false);
     }
   };
 
@@ -318,7 +62,7 @@ export default function Admin() {
             item.id,
             item.fecha_ingreso,
             `"${item.arte_anunciante}"`,
-            `"${item.vendedor}"`,
+            `"${item.vendedor_rel?.nombre || ''}"`,
             `"${item.sitio_instalacion}"`,
             item.tamano,
             item.material,
@@ -364,7 +108,7 @@ export default function Admin() {
           item={deletingItem}
           onConfirm={handleConfirmDelete}
           onCancel={() => setDeletingItem(null)}
-          isLoading={deleteLoading}
+          isLoading={deleteItemMutation.isPending}
         />
       )}
 
@@ -421,7 +165,7 @@ export default function Admin() {
 
         <div className="flex gap-2 w-full sm:w-auto">
           <button
-            onClick={fetchInventory}
+            onClick={() => fetchInventory()}
             disabled={loading}
             className="flex items-center justify-center gap-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg font-medium transition-colors shadow-sm disabled:opacity-60"
             title="Actualizar datos"
@@ -478,7 +222,7 @@ export default function Admin() {
                       <td className="px-6 py-4">
                         <div className="text-sm font-medium text-gray-900">{item.arte_anunciante}</div>
                         <div className="text-sm text-gray-500">{item.sitio_instalacion}</div>
-                        <div className="text-xs text-indigo-600 mt-1">Ubicación en Bodega: {item.vendedor}</div>
+                        <div className="text-xs text-indigo-600 mt-1">Ubicación en Bodega: {item.vendedor_rel?.nombre}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">{item.fecha_ingreso}</div>
@@ -554,6 +298,31 @@ export default function Admin() {
                 )}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Paginación */}
+        {!loading && count > 0 && (
+          <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
+            <div className="text-sm text-gray-500">
+              Mostrando {page * pageSize + 1} a {Math.min((page + 1) * pageSize, count)} de {count} resultados
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPage(p => Math.max(0, p - 1))}
+                disabled={page === 0}
+                className="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-100 disabled:opacity-50"
+              >
+                Anterior
+              </button>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+                disabled={page >= totalPages - 1}
+                className="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-100 disabled:opacity-50"
+              >
+                Siguiente
+              </button>
+            </div>
           </div>
         )}
       </div>

@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { PackagePlus, LogOut, CheckCircle2, Loader2, Search as SearchIcon, X, Box, ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import type { BannerSize, BannerMaterial, BannerCondition, InventoryItem } from '../lib/types';
-import { createInventoryItem, getAvailableItems, updateInventoryItemSalida } from '../lib/api';
-import ModuloInsumosAlmacen from '../components/ModuloInsumosAlmacen';
+import ModuloInsumosAlmacen from '../features/insumos/components/ModuloInsumosAlmacen';
+import { useAvailableInventory, useCreateInventoryItem, useUpdateInventoryItemSalida } from '../features/lonas/hooks/useInventory';
+import { useEmpleados } from '../hooks/useCatalogs';
 
 export default function Almacenista() {
   const [mainTab, setMainTab] = useState<'lonas' | 'insumos'>('lonas');
@@ -74,11 +75,13 @@ export default function Almacenista() {
 
 // ─── Formulario de Ingreso ────────────────────────────────────────────────────
 function FormularioIngreso() {
-  const [loading, setLoading] = useState(false);
+  const createItemMutation = useCreateInventoryItem();
+  const { data: empleados = [] } = useEmpleados();
+
   const [formData, setFormData] = useState({
     fecha_ingreso: new Date().toISOString().split('T')[0],
     arte_anunciante: '',
-    vendedor: '',
+    vendedor_id: '',
     sitio_instalacion: '',
     tamano: 'sencilla' as BannerSize,
     material: 'front' as BannerMaterial,
@@ -87,14 +90,13 @@ function FormularioIngreso() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     try {
-      await createInventoryItem(formData);
+      await createItemMutation.mutateAsync(formData as any);
       toast.success('Ingreso registrado correctamente');
       setFormData({
         fecha_ingreso: new Date().toISOString().split('T')[0],
         arte_anunciante: '',
-        vendedor: '',
+        vendedor_id: '',
         sitio_instalacion: '',
         tamano: 'sencilla',
         material: 'front',
@@ -103,8 +105,6 @@ function FormularioIngreso() {
     } catch (error) {
       toast.error('Error al registrar el ingreso. Intenta de nuevo.');
       console.error(error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -141,14 +141,15 @@ function FormularioIngreso() {
 
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-gray-700">Ubicación en Bodega</label>
-            <input
-              type="text"
+            <select
               required
-              placeholder="Ej. Estante A-3, Pasillo 2..."
-              value={formData.vendedor}
-              onChange={(e) => setFormData({ ...formData, vendedor: e.target.value })}
-              className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-            />
+              value={formData.vendedor_id}
+              onChange={(e) => setFormData({ ...formData, vendedor_id: e.target.value })}
+              className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+            >
+              <option value="">Seleccione una ubicación / vendedor...</option>
+              {empleados.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+            </select>
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -208,15 +209,15 @@ function FormularioIngreso() {
       <div className="pt-4 flex justify-end">
         <button
           type="submit"
-          disabled={loading}
+          disabled={createItemMutation.isPending}
           className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-md font-medium shadow-sm transition-colors flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
         >
-          {loading ? (
+          {createItemMutation.isPending ? (
             <Loader2 className="w-5 h-5 animate-spin" />
           ) : (
             <PackagePlus className="w-5 h-5" />
           )}
-          {loading ? 'Guardando...' : 'Registrar Ingreso'}
+          {createItemMutation.isPending ? 'Guardando...' : 'Registrar Ingreso'}
         </button>
       </div>
     </form>
@@ -225,9 +226,8 @@ function FormularioIngreso() {
 
 // ─── Formulario de Salida ─────────────────────────────────────────────────────
 function FormularioSalida() {
-  const [loading, setLoading] = useState(false);
-  const [loadingItems, setLoadingItems] = useState(true);
-  const [availableItems, setAvailableItems] = useState<InventoryItem[]>([]);
+  const { data: availableItems = [], isLoading: loadingItems } = useAvailableInventory();
+  const updateSalidaMutation = useUpdateInventoryItemSalida();
 
   // ── Combobox state ──
   const [searchQuery, setSearchQuery] = useState('');
@@ -243,26 +243,16 @@ function FormularioSalida() {
     sitio_instalacion: '',
   });
 
-  useEffect(() => {
-    const fetchItems = async () => {
-      try {
-        const items = await getAvailableItems();
-        setAvailableItems(items);
-      } catch {
-        toast.error('No se pudieron cargar los materiales disponibles.');
-      } finally {
-        setLoadingItems(false);
-      }
-    };
-    fetchItems();
-  }, []);
+  // Eliminamos el useEffect local, useAvailableInventory hace el trabajo
 
   // Filtrar en tiempo real
   const filteredItems = availableItems.filter((item) => {
     const q = searchQuery.toLowerCase();
+    const clienteNombre = item.arte_anunciante?.toLowerCase() || '';
+    const sitioNombre = item.sitio_instalacion?.toLowerCase() || '';
     return (
-      item.arte_anunciante.toLowerCase().includes(q) ||
-      item.sitio_instalacion.toLowerCase().includes(q) ||
+      clienteNombre.includes(q) ||
+      sitioNombre.includes(q) ||
       item.tamano.toLowerCase().includes(q) ||
       item.material.toLowerCase().includes(q)
     );
@@ -288,19 +278,20 @@ function FormularioSalida() {
       toast.error('Por favor selecciona un material para darle salida');
       return;
     }
-    setLoading(true);
     try {
-      await updateInventoryItemSalida(selectedItem.id, {
-        fecha_salida: formData.fecha_salida,
-        entregado_a: formData.entregado_a,
-        estado_entrega: formData.estado_entrega,
-        kg_alambre: formData.kg_alambre ? parseFloat(formData.kg_alambre) : null,
-        llaves_entregadas: formData.llaves_entregadas,
-        sitio_instalacion: formData.sitio_instalacion,
-        updated_at: new Date().toISOString(),
+      await updateSalidaMutation.mutateAsync({
+        id: selectedItem.id,
+        salida: {
+          fecha_salida: formData.fecha_salida,
+          entregado_a: formData.entregado_a,
+          estado_entrega: formData.estado_entrega,
+          kg_alambre: formData.kg_alambre ? parseFloat(formData.kg_alambre) : null,
+          llaves_entregadas: formData.llaves_entregadas,
+          sitio_instalacion: formData.sitio_instalacion,
+          updated_at: new Date().toISOString(),
+        }
       });
       toast.success('Salida registrada correctamente');
-      setAvailableItems((prev) => prev.filter((i) => i.id !== selectedItem.id));
       setSelectedItem(null);
       setSearchQuery('');
       setFormData({
@@ -314,8 +305,6 @@ function FormularioSalida() {
     } catch (error) {
       toast.error('Error al registrar la salida. Intenta de nuevo.');
       console.error(error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -503,15 +492,15 @@ function FormularioSalida() {
       <div className="pt-4 flex justify-end">
         <button
           type="submit"
-          disabled={loading || loadingItems || !selectedItem}
+          disabled={updateSalidaMutation.isPending || loadingItems || !selectedItem}
           className="bg-orange-600 hover:bg-orange-700 disabled:opacity-60 disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-md font-medium shadow-sm transition-colors flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
         >
-          {loading ? (
+          {updateSalidaMutation.isPending ? (
             <Loader2 className="w-5 h-5 animate-spin" />
           ) : (
             <LogOut className="w-5 h-5" />
           )}
-          {loading ? 'Guardando...' : 'Registrar Salida'}
+          {updateSalidaMutation.isPending ? 'Guardando...' : 'Registrar Salida'}
         </button>
       </div>
     </form>
